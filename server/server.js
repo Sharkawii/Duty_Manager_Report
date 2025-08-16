@@ -19,6 +19,7 @@ const BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
 ['DB_USER','DB_PASSWORD','DB_HOST','DB_NAME','EMAIL_USER','EMAIL_PASS','ADMIN_EMAIL','ADMIN_EMAILS']
   .forEach(k => { if (!process.env[k]) console.warn(`⚠️ Missing ENV: ${k}`); });
 
+  const DEMO_MODE = /^true$/i.test(process.env.DEMO_MODE || '');
 // ميدلوير أساسي
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
@@ -330,39 +331,45 @@ app.post('/save-response', async (req, res) => {
   try {
     const { username='unknown', name, timestamp, answers } = req.body;
     const displayName = name || username;
-
     const submissionDate = timestamp ? new Date(timestamp) : new Date();
     if (!answers) return res.status(400).json({ message: '❌ Missing answers' });
 
-    const pool = await sql.connect(dbConfig);
-    const respResult = await pool.request()
-      .input('username', sql.NVarChar, username)
-      .input('submission_date', sql.DateTime, submissionDate)
-      .query(`INSERT INTO responses (username, submission_date) OUTPUT INSERTED.id VALUES (@username, @submission_date)`);
-    const responseId = respResult.recordset[0].id;
+    let responseId;
 
-    // باقي الحقول (ما عدا actions)
-    for (const [key, value] of Object.entries(answers)) {
-      if (key === 'actions') continue;
-      await pool.request()
-        .input('response_id', sql.Int, responseId)
-        .input('field_name', sql.NVarChar, key)
-        .input('field_value', sql.NVarChar(sql.MAX), JSON.stringify(value ?? ''))
-        .query(`INSERT INTO response_fields (response_id, field_name, field_value) VALUES (@response_id, @field_name, @field_value)`);
-    }
+    if (!DEMO_MODE) {
+      const pool = await sql.connect(dbConfig);
+      const respResult = await pool.request()
+        .input('username', sql.NVarChar, username)
+        .input('submission_date', sql.DateTime, submissionDate)
+        .query(`INSERT INTO responses (username, submission_date) OUTPUT INSERTED.id VALUES (@username, @submission_date)`);
+      responseId = respResult.recordset[0].id;
 
-    // الإجراءات + الإدارات
-    const actionsSafe = Array.isArray(answers.actions) ? answers.actions : [];
-    for (const a of actionsSafe) {
-      await pool.request()
-        .input('response_id', sql.Int, responseId)
-        .input('notes', sql.NVarChar(sql.MAX), safeStr(a?.notes,''))
-        .input('action_taken', sql.NVarChar(sql.MAX), safeStr(a?.action_taken,''))
-        .input('action_date', sql.Date, a?.actionDate || null)
-        .input('departments', sql.NVarChar(sql.MAX), Array.isArray(a?.departments) ? JSON.stringify(a.departments) : '[]')
-        .input('image_base64', sql.NVarChar(sql.MAX), a?.image || null)
-        .query(`INSERT INTO responses_actions (response_id, notes, action_taken, action_date, departments, image_base64)
-                VALUES (@response_id, @notes, @action_taken, @action_date, @departments, @image_base64)`);
+      // باقي الإدخالات في response_fields
+      for (const [key, value] of Object.entries(answers)) {
+        if (key === 'actions') continue;
+        await pool.request()
+          .input('response_id', sql.Int, responseId)
+          .input('field_name', sql.NVarChar, key)
+          .input('field_value', sql.NVarChar(sql.MAX), JSON.stringify(value ?? ''))
+          .query(`INSERT INTO response_fields (response_id, field_name, field_value) VALUES (@response_id, @field_name, @field_value)`);
+      }
+
+      const actionsSafe = Array.isArray(answers.actions) ? answers.actions : [];
+      for (const a of actionsSafe) {
+        await pool.request()
+          .input('response_id', sql.Int, responseId)
+          .input('notes', sql.NVarChar(sql.MAX), safeStr(a?.notes,'')) 
+          .input('action_taken', sql.NVarChar(sql.MAX), safeStr(a?.action_taken,'')) 
+          .input('action_date', sql.Date, a?.actionDate || null)
+          .input('departments', sql.NVarChar(sql.MAX), Array.isArray(a?.departments) ? JSON.stringify(a.departments) : '[]')
+          .input('image_base64', sql.NVarChar(sql.MAX), a?.image || null)
+          .query(`INSERT INTO responses_actions (response_id, notes, action_taken, action_date, departments, image_base64)
+                  VALUES (@response_id, @notes, @action_taken, @action_date, @departments, @image_base64)`);
+      }
+    } else {
+      // Demo: رقم تقرير مؤقت (unique) وتجاهل SQL
+      responseId = Date.now();
+      console.log('ℹ️ DEMO_MODE: skipping DB writes. Using responseId=', responseId);
     }
 
     const { filePath, fileName, formattedDate, formattedTime } =
@@ -455,3 +462,12 @@ app.listen(PORT, () => {
 sql.connect(dbConfig)
   .then(() => console.log('✅ Connected to SQL Server Database successfully!'))
   .catch(err => console.error('❌ Failed to connect to SQL Server:', err.message));
+
+
+  if (!DEMO_MODE) {
+  sql.connect(dbConfig)
+    .then(() => console.log('✅ Connected to SQL Server Database successfully!'))
+    .catch(err => console.error('❌ Failed to connect to SQL Server:', err.message));
+} else {
+  console.log('ℹ️ DEMO_MODE is ON: skipping SQL connection.');
+}
