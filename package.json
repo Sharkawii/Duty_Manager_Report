@@ -1,0 +1,33 @@
+{
+  "name": "survey_new",
+  "version": "1.0.0",
+  "main": "tailwind.config.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "arabic-persian-reshaper": "^1.0.1",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "fontkit": "^2.0.4",
+    "fs-extra": "^11.3.1",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.1",
+    "mssql": "^11.0.1",
+    "nodemailer": "^7.0.5",
+    "pdfmake": "^0.2.20",
+    "puppeteer": "^24.16.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10",
+    "tailwindcss": "^4.1.11"
+  }
+}

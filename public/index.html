@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>نموذج التقرير اليومي</title>
+
+  <link rel="stylesheet" href="/output.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script defer src="App.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { overflow-x: hidden; }
+    body {
+      background: linear-gradient(135deg, #0d47a1, #1976d2);
+      font-family: 'Cairo', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ===== Login tidy ===== */
+    #loginSection .stack{
+      display:flex; flex-direction:column; gap:10px; align-items:center;
+      max-width: 360px; margin-inline:auto;
+    }
+    #loginSection input, #loginSection button{
+      width: 320px; max-width:100%;
+    }
+
+    select, input[type="text"], input[type="password"], input[type="time"], input[type="date"], textarea {
+      border: 1px solid #cfd8dc; border-radius: 8px;
+      padding: 0.55rem 0.7rem; width: 100%; max-width: 320px;
+      margin: 0.45rem auto; display: block; transition: 0.2s; background:#fff;
+    }
+
+    .card {
+      background: #fff; padding: 2rem; border-radius: 20px;
+      box-shadow: 0 6px 25px rgba(0,0,0,0.2);
+      text-align: center; width: 95%; max-width: 900px;
+      margin: 40px auto; animation: fadeIn 0.8s ease;
+    }
+
+    #userHeader {
+      background: linear-gradient(to right, #1565c0, #42a5f5);
+      color: white; padding: 1rem; border-radius: 12px;
+      margin-bottom: 1.5rem; box-shadow: 0 3px 10px rgba(0,0,0,0.3); text-align: center;
+    }
+
+    .hidden { display: none; }
+    .btn {
+      background: linear-gradient(to right, #1565c0, #42a5f5); color: white; border: none;
+      padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 16px;
+      margin-top: 10px; transition: 0.3s;
+    }
+    .btn:hover { transform: translateY(-1px); }
+
+    .form-actions{ display:flex; flex-direction:column; gap:12px; margin-top:14px; }
+    .form-actions .row{ display:flex; gap:12px; justify-content:flex-start; }
+    .btn-add{ align-self:flex-start; padding:8px 14px; font-size:14px; border-radius:10px; }
+    .btn-delete{
+      padding:8px 14px; font-size:14px; border-radius:10px;
+      background: linear-gradient(to right, #d32f2f, #ef5350); color:#fff; border:none;
+    }
+    .btn-delete:hover{ filter:brightness(.95); }
+#submitBtn.btn,
+.btn-submit{
+  background: linear-gradient(to right, #1565c0, #42a5f5) !important;
+  color:#fff !important;
+  border:none;
+  align-self:center;
+  width: 200px !important;      /* أصغر من 260px */
+  padding: 8px 14px !important; /* يقلّل الارتفاع */
+  font-size: 18px !important;   /* يكبّر الخط */
+  font-weight: 700 !important;  /* يخلي الخط Bold */
+  border-radius: 10px; 
+}
+#submitBtn.btn:hover,
+.btn-submit:hover{
+  transform: translateY(-1px);
+}
+
+#addActionBtn.btn,
+.btn-add{
+  background:#2e7d32 !important;
+  background-image:none !important;
+  color:#fff !important;
+  border:none;
+}
+#addActionBtn.btn:hover,
+.btn-add:hover{
+  filter: brightness(0.95);
+}
+
+.btn.is-loading { opacity: .85; pointer-events: none; }
+.btn .spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  display: inline-block;
+  margin-inline-start: 8px;          /* مسافة قبل السبينر */
+  vertical-align: -2px;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width:480px){ #submitBtn.btn{ width:100%; } }
+
+    .table-wrapper{ overflow-x:auto; overflow-y:visible; width:100%; }
+    table.actions-table{
+      width:100%; border-collapse:collapse; table-layout:fixed;
+      border:1px solid #e0e0e0; border-radius:12px; overflow:visible; background:#fff;
+    }
+    table.actions-table thead th{
+      background:#e3f2fd; color:#0d47a1; font-weight:800; padding:12px 10px;
+      border-bottom:1px solid #c5d9ee; font-size:14px; position:sticky; top:0; z-index:1;
+    }
+    table.actions-table td{
+      border-bottom:1px solid #ecf2f8; padding:10px; vertical-align:top;
+      word-break:break-word; white-space:normal; font-size:14px; background:#fff; overflow:visible;
+    }
+    table.actions-table tbody tr:nth-child(odd){ background:#fbfdff; }
+
+    .actions-table textarea,
+    .actions-table input[type="date"],
+    .actions-table input[type="file"]{
+      width:100%; min-height:40px; border-radius:8px;
+    }
+    .actions-table textarea.notes-input{ min-height:80px; resize:vertical; }
+    .actions-table textarea.action-input{ min-height:64px; resize:vertical; }
+
+    .img-preview{
+      width:100%; max-width:110px; height:80px; object-fit:contain; display:block;
+      border:1px solid #e0e0e0; border-radius:8px; background:#fff; margin-top:8px;
+    }
+    .file-picker{
+      display:inline-flex; align-items:center; gap:8px; border:1px dashed #b0bec5; border-radius:10px;
+      padding:8px 10px; background:#f8fbff; color:#0d47a1; cursor:pointer; user-select:none;
+    }
+    .file-name{ font-size:12px; color:#607d8b; display:block; margin-top:6px; }
+
+    /* ===== Dept dropdown (Portal) ===== */
+    .dept-select{ position:relative; display:grid; gap:8px; }
+    .dept-btn{
+      border:1px solid #1565c0; background:#f8fbff; color:#0d47a1;
+      padding:8px 12px; border-radius:999px; cursor:pointer; text-align:center; font-size:14px; width:100%;
+    }
+    .dept-btn:hover{ background:#eef6ff; }
+
+    /* القائمة داخل الخلية (قبل التحويل لبورتال) */
+    .dept-menu{
+      position:absolute; inset-inline:0; top:calc(100% + 6px);
+      background:#fff; border:1px solid #cfd8dc; border-radius:12px; box-shadow:0 10px 24px rgba(13,71,161,.12);
+      padding:8px; z-index:10; max-height:none; overflow:visible;
+      display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px 12px;  /* عمودين */
+    }
+    .dept-menu.hidden{ display:none; }
+
+    /* لما تتنقل كـ Portal */
+    .dept-menu.portal{
+      position:fixed;  z-index:9999;
+      /* نحافظ على العمودين */
+    }
+
+    .dept-menu .menu-item{ display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; cursor:pointer; user-select:none; }
+    .dept-menu .menu-item:hover{ background:#f5f9ff; }
+
+    .dept-chips{ display:flex; flex-wrap:wrap; gap:6px; align-items: center; }
+    .chip{
+      display:inline-flex; align-items:center; gap:6px;white-space: nowrap;
+      background:#1565c0; color:#fff; border-radius:999px; padding:6px 10px; font-size:12px;
+    }
+    .chip .x{
+      display:inline-flex; width:18px; height:18px; align-items:center; justify-content:center;
+      border-radius:50%; background:rgba(255,255,255,.18); cursor:pointer; font-weight:700;
+    }
+    .chip .x:hover{ background:rgba(255,255,255,.28); }
+    .small-hint{ color:#607d8b; display:block; margin-top:2px; font-size:12px; }
+
+    footer{ margin-top:1.25rem; color:white; text-align:center; opacity:.9; font-size:14px; }
+    .btn[disabled], .btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+    @keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+  </style>
+</head>
+
+<body class="flex flex-col items-center justify-center min-h-screen">
+
+  <!-- Login -->
+  <div id="loginSection" class="card">
+    <img src="/phpI4rSko.png" alt="Logo" class="mx-auto mb-4" style="width:120px;">
+    <h2 class="mb-4">Duty Manager Report</h2>
+
+    <div class="stack">
+      <input id="username" class="border text-center" type="text" placeholder="اسم المستخدم">
+      <input id="password" class="border text-center" type="password" placeholder="كلمة المرور">
+      <button id="loginBtn" class="btn">تسجيل دخول</button>
+    </div>
+
+    <p id="loginError" class="text-red-600 mt-2"></p>
+  </div>
+
+  <!-- Form -->
+  <div id="formSection" class="card hidden text-right">
+
+    <div id="userHeader">
+      <h2 class="text-xl font-bold mb-1">مرحباً <span id="userNameDisplay"></span></h2>
+      <p class="text-sm opacity-90">
+        البريد: <span id="userEmailDisplay"></span><br>
+        التاريخ: <span id="currentDate"></span> | الساعة: <span id="currentTime"></span>
+      </p>
+    </div>
+
+    <h2 class="mb-4 text-center">أدخل بياناتك</h2>
+
+    <!-- سيكشن الأسئلة -->
+    <div id="surveyContainer" class="mb-6 text-right"></div>
+
+    <!-- جدول الملاحظات -->
+    <h3 class="text-lg font-bold mb-3">جـدول الـمـلاحـظـات</h3>
+    <div class="table-wrapper">
+      <table id="actionsTable" class="actions-table">
+        <colgroup>
+          <col style="width:34%">  <!-- الملاحظات -->
+          <col style="width:14%">  <!-- التاريخ -->
+          <col style="width:22%">  <!-- الإجراء -->
+          <col style="width:19%">  <!-- الإدارة -->
+          <col style="width:26%">  <!-- الصورة -->
+        </colgroup>
+        <thead>
+          <tr>
+            <th>الملاحظات</th>
+            <th>تاريخ</th>
+            <th>الإجراء</th>
+            <th>الإدارة</th>
+            <th>الصورة</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="form-actions">
+      <div class="row">
+        <button id="addActionBtn"    type="button" class="btn btn-add">إضـافـة مـلاحـظـة</button>
+        <button id="removeActionBtn" type="button" class="btn btn-delete">حـذف مـلاحـظـة</button>
+      </div>
+      <button id="submitBtn" type="button" class="btn">تسجيل</button>
+    </div>
+
+    <footer>هذا النظام تابع لقسم الـ IT</footer>
+  </div>
+</body>
+</html>

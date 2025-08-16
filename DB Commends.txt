@@ -1,0 +1,100 @@
+StrongP@ss123
+
+
+SHOW DATABASES;
+USE اسم_الداتابيز;
+SHOW TABLES;
+-- جدول الردود
+SELECT * FROM responses;
+
+-- جدول الحقول
+SELECT * FROM response_fields;
+
+-- جدول الأكشنز
+SELECT * FROM responses_actions;
+
+
+
+
+
+-- 1. جدول responses
+CREATE TABLE responses (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    username NVARCHAR(255) NOT NULL,
+    submission_date DATETIME NOT NULL
+);
+
+-- 2. جدول response_fields
+CREATE TABLE response_fields (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    response_id INT FOREIGN KEY REFERENCES responses(id),
+    field_name NVARCHAR(255),
+    field_value NVARCHAR(MAX)
+);
+
+-- 3. جدول responses_actions
+CREATE TABLE responses_actions (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    response_id INT FOREIGN KEY REFERENCES responses(id),
+    notes NVARCHAR(MAX),
+    action_taken NVARCHAR(MAX),
+    action_date DATE,
+    image_base64 NVARCHAR(MAX)
+);
+--------------------------------------------------------------------------------------------------
+نفضل نخزن JSON زي ما هو
+
+نعمل View يفك JSON ويعرضه في أعمدة مفصّلة
+
+نترجم أسماء الأسئلة للعربي عشان تبقى واضحة
+USE Survey_new;
+GO
+
+CREATE OR ALTER VIEW vw_full_report AS
+SELECT
+    r.id AS response_id,
+    r.username,
+    r.submission_date,
+    
+    -- سؤال بالعربي
+    CASE rf.field_name
+        WHEN 'attendance_all' THEN N'حضور جميع العاملين في الوقت المحدد'
+        WHEN 'departments_rep' THEN N'جميع الإدارات ممثلة بموظف واحد على الأقل'
+        WHEN 'building_clean_inside' THEN N'النظافة الداخلية للمبنى'
+        WHEN 'building_clean_outside' THEN N'النظافة الخارجية للمبنى'
+        WHEN 'production_clean' THEN N'النظافة داخل صالة الإنتاج'
+        WHEN 'warehouse_clean' THEN N'النظافة داخل المخازن'
+        WHEN 'uniform_company' THEN N'ارتداء جميع العاملين زي الشركة'
+        WHEN 'appearance' THEN N'التزام جميع العاملين بالمظهر العام (حلاقة الذقن)'
+        WHEN 'uniform_factory' THEN N'ارتداء جميع العاملين بالمصنع زي التصنيع (غطاء الرأس – الكمامة – القفازات)'
+        WHEN 'trucks_loaded' THEN N'جميع السيارات تم تحميلها و خروجها للتوزيع'
+        WHEN 'production_orders' THEN N'جميع أوامر الإنتاج منفذة و مفعلة على النظام'
+        WHEN 'cafeteria_ready' THEN N'الكافتيريا مجهزة و معدة لاستقبال العاملين'
+        WHEN 'leaving_on_time' THEN N'جميع العاملين ملتزمون بموعد الانصراف'
+        ELSE rf.field_name
+    END AS question_arabic,
+
+    -- الإجابات (نتأكد إنها JSON قبل ما نفكها)
+    CASE WHEN ISJSON(rf.field_value) = 1 THEN JSON_VALUE(rf.field_value, '$.answer') ELSE rf.field_value END AS answer,
+    CASE WHEN ISJSON(rf.field_value) = 1 THEN JSON_VALUE(rf.field_value, '$.time') END AS time_answer,
+    CASE WHEN ISJSON(rf.field_value) = 1 THEN JSON_VALUE(rf.field_value, '$.reason') END AS reason,
+    CASE WHEN ISJSON(rf.field_value) = 1 THEN JSON_VALUE(rf.field_value, '$.action') END AS action,
+
+    -- بيانات الأكشنز
+    ra.notes AS action_notes,
+    ra.action_taken,
+    ra.action_date,
+    ra.image_base64
+
+FROM responses r
+LEFT JOIN response_fields rf
+    ON r.id = rf.response_id
+LEFT JOIN responses_actions ra
+    ON r.id = ra.response_id;
+GO
+
+--------------------------------------------------------------------------------------------------
+SELECT * FROM vw_full_report ORDER BY response_id DESC;
+
+
+--------------------------------------------------------------------------------------------------

@@ -1,0 +1,23 @@
+# Dockerfile
+FROM node:20-bullseye
+
+# Dependencies لكروميوم (تشتغل مع Puppeteer)
+RUN apt-get update && apt-get install -y \
+    chromium \
+    libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 \
+    libxdamage1 libxrandr2 libgbm1 libasound2 fonts-noto-color-emoji \
+  && rm -rf /var/lib/apt/lists/*
+
+# خزن مسار كروميوم (Puppeteer هيستخدمه)
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY . .
+
+# Render يستخدم PORT من البيئة؛ سيرفرك على 3000
+ENV PORT=3000
+EXPOSE 3000
+
+CMD ["node", "server/server.js"]

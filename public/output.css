@@ -1,0 +1,31 @@
+/* Temporary CSS to fix MIME type error */
+
+body {
+  background-color: #f0f4f8;  /* لون فاتح للخلفية */
+  font-family: Arial, sans-serif;
+  direction: rtl; /* عشان العربي يبقى مضبوط */
+  text-align: center;
+  margin: 0;
+  padding: 0;
+}
+
+h2 {
+  color: #1e3a8a; /* أزرق غامق */
+}
+
+input, textarea, select, button {
+  margin: 5px;
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+button {
+  background-color: #1e3a8a;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #3b82f6;
+}
