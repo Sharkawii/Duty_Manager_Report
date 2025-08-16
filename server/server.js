@@ -457,14 +457,7 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
-
-// اختبار اتصال بقاعدة البيانات (اختياري)
-sql.connect(dbConfig)
-  .then(() => console.log('✅ Connected to SQL Server Database successfully!'))
-  .catch(err => console.error('❌ Failed to connect to SQL Server:', err.message));
-
-
-  if (!DEMO_MODE) {
+if (!DEMO_MODE) {
   sql.connect(dbConfig)
     .then(() => console.log('✅ Connected to SQL Server Database successfully!'))
     .catch(err => console.error('❌ Failed to connect to SQL Server:', err.message));
