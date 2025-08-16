@@ -273,47 +273,49 @@ function renderActions() {
   actions.forEach((action, index) => {
     if (!Array.isArray(action.departments)) action.departments = [];
 
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>
-        <textarea class="notes-input" placeholder="...ملاحظة">${action.notes || ''}</textarea>
-      </td>
-      <td>
-        <input type="date" value="${action.actionDate || ''}" class="date-input">
-      </td>
-      <td>
-        <textarea class="action-input" placeholder="...الإجراء المتخذ">${action.action_taken || ''}</textarea>
-      </td>
+const tr = document.createElement("tr");
+tr.innerHTML = `
+  <td data-label="الملاحظات">
+    <textarea class="notes-input" placeholder="...ملاحظة">${action.notes || ''}</textarea>
+  </td>
 
-      <!-- الإدارة: زر Dropdown متعدد الاختيار -->
-      <td style="position: relative;">
-        <div class="dept-select">
-          <button type="button" class="dept-btn">اختر الإدارة (0/2)</button>
-          <div class="dept-menu hidden">
-            ${DEPARTMENTS.map(d => `
-              <label class="menu-item"
-                     style="display:flex;flex-direction:row-reverse;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e6eef6;border-radius:10px;background:#fff;cursor:pointer;">
-                <input type="checkbox" data-dept="${d}" />
-                <span>${d}</span>
-              </label>
-            `).join('')}
-          </div>
-          <div class="dept-chips"></div>
-        </div>
-      </td>
+  <td data-label="التاريخ">
+    <input type="date" value="${action.actionDate || ''}" class="date-input">
+  </td>
 
-      <td>
-        <label class="file-picker">
-          <span>📎 رفع صورة</span>
-          <input type="file" class="image-input" accept="image/*" hidden>
-        </label>
-        <span class="file-name"></span>
-        ${action.image ? `<img class="img-preview" src="${action.image}" alt="preview">` : `<img class="img-preview" style="display:none" />`}
-      </td>
+  <td data-label="الإجراء المتخذ">
+    <textarea class="action-input" placeholder="...الإجراء المتخذ">${action.action_taken || ''}</textarea>
+  </td>
 
-      <!-- عمود الحذف (فاضي عمداً) -->
-      <td class="no-remove"></td>
-    `;
+  <!-- الإدارة: زر Dropdown متعدد الاختيار -->
+  <td data-label="الإدارة" style="position: relative;">
+    <div class="dept-select">
+      <button type="button" class="dept-btn">اختر الإدارة (0/2)</button>
+      <div class="dept-menu hidden">
+        ${DEPARTMENTS.map(d => `
+          <label class="menu-item"
+                 style="display:flex;flex-direction:row-reverse;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e6eef6;border-radius:10px;background:#fff;cursor:pointer;">
+            <input type="checkbox" data-dept="${d}" />
+            <span>${d}</span>
+          </label>
+        `).join('')}
+      </div>
+      <div class="dept-chips"></div>
+    </div>
+  </td>
+
+  <td data-label="الصورة">
+    <label class="file-picker">
+      <span>📎 رفع صورة</span>
+      <input type="file" class="image-input" accept="image/*" hidden>
+    </label>
+    <span class="file-name"></span>
+    ${action.image ? `<img class="img-preview" src="${action.image}" alt="preview">` : `<img class="img-preview" style="display:none" />`}
+  </td>
+
+  <td class="no-remove" data-label=""></td>
+`;
+
     actionsTableBody.appendChild(tr);
 
     // Bind نصوص
@@ -348,16 +350,34 @@ function renderActions() {
     const placeholder = document.createComment('dept-menu-placeholder');
     let isOpen = false;
 
-    function positionMenu() {
-      const r = btn.getBoundingClientRect();
-      const top  = r.bottom + 6;
-      const left = r.left;
-      const minW = Math.max(r.width, 240);
-      menu.style.top  = `${top}px`;
-      menu.style.left = `${left}px`;
-      menu.style.width = `${minW}px`;
-      menu.style.right = 'auto';
-    }
+function positionMenu() {
+  const isSmall = window.matchMedia('(max-width: 640px)').matches;
+  if (isSmall) {
+    menu.style.position = 'fixed';
+    menu.style.top = 'auto';
+    menu.style.bottom = '12px';
+    menu.style.left = '50%';
+    menu.style.right = 'auto';
+    menu.style.transform = 'translateX(-50%)';
+    menu.style.width = '92vw';
+    menu.style.maxHeight = '45vh';
+    menu.style.overflow = 'auto';
+    return;
+  }
+  const r = btn.getBoundingClientRect();
+  const width = Math.max(r.width, 240);
+  const top = r.bottom + 6;
+  const left = r.left;
+  menu.style.position = 'absolute';
+  menu.style.top  = `${top}px`;
+  menu.style.left = `${left}px`;
+  menu.style.width = `${width}px`;
+  menu.style.right = 'auto';
+  menu.style.transform = '';
+  menu.style.maxHeight = '';
+  menu.style.overflow = '';
+}
+
 
     function openMenu() {
       if (isOpen) return;

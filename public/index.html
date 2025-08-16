@@ -40,6 +40,98 @@
       margin: 40px auto; animation: fadeIn 0.8s ease;
     }
 
+/* ========== تحسين جدول الإجراءات على الموبايل ========== */
+@media (max-width: 640px){
+  /* خلّي الجدول يتحوّل لكروت */
+  #actionsTable,
+  #actionsTable thead,
+  #actionsTable tbody,
+  #actionsTable th,
+  #actionsTable td,
+  #actionsTable tr {
+    display: block;
+    width: 100%;
+  }
+
+  #actionsTable thead { display: none; }
+
+  #actionsTable tr {
+    margin-bottom: 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb; /* slate-200 */
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  #actionsTable td {
+    border: 0;
+    padding: 8px 0;
+  }
+
+  /* اسم العمود يظهر أعلى كل خلية */
+  #actionsTable td::before {
+    content: attr(data-label);
+    display: block;
+    font-weight: 700;
+    color: #2563eb; /* أزرق مناسب */
+    margin-bottom: 4px;
+  }
+
+  /* مدخلات تاخد عرض كامل */
+  .notes-input,
+  .action-input,
+  .date-input {
+    width: 100%;
+    min-height: 72px;
+  }
+
+  /* شِبْس الإدارات تلف وتترتب */
+  .dept-select .dept-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* المعاينة ما تخرجش برة */
+  .img-preview {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-top: 6px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+
+  /* زر اختيار ملف أسهل للمس */
+  .file-picker span {
+    display: inline-block;
+    padding: 8px 10px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+  }
+
+  /* منيو الإدارات على الموبايل (لو اتفتحت Portal) */
+  .dept-menu.portal {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: 12px !important;
+    transform: translateX(-50%) !important;
+    width: 92vw !important;
+    max-height: 45vh !important;
+    overflow: auto !important;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.2);
+  }
+
+  .dept-btn { width: 100%; }
+}
+
+
     #userHeader {
       background: linear-gradient(to right, #1565c0, #42a5f5);
       color: white; padding: 1rem; border-radius: 12px;
