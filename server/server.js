@@ -1,107 +1,92 @@
+// server/server.js
+'use strict';
+console.log('__dirname is:', __dirname);
+require('dotenv').config();
+
+const express    = require('express');
+const cors       = require('cors');
+const sql        = require('mssql');
+const fs         = require('fs-extra');
+const path       = require('path');
+const puppeteer  = require('puppeteer');
+const nodemailer = require('nodemailer');
+
+const app  = express();
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
 
-// ==== MSSQL config (يشغّل encrypt تلقائيًا لو Azure) ====
-const isAzure = /\.database\.windows\.net$/i.test(process.env.DB_HOST || '');
-const dbConfig = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  server: process.env.DB_HOST,      // لازم تبقى String (مش فاضي)
-  database: process.env.DB_NAME,
-  port: parseInt(process.env.DB_PORT) || 1433,
-  options: {
-    encrypt: isAzure,               // Azure يتطلب true
-    trustServerCertificate: !isAzure
-  }
-};
-
-// ==== Puppeteer في بيئة كونتينر ====
-const browser = await puppeteer.launch({
-  headless: 'new',
-  args: [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--font-render-hinting=medium'
-  ]
-});
-
-console.log('__dirname is: D:\\M.Sharkawy\\EBS\\Website EBS\\Duty_Manager_Report\\server', __dirname);
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const sql = require('mssql');
-const fs = require('fs-extra');
-const path = require('path');
-const puppeteer = require('puppeteer');
-const nodemailer = require('nodemailer');
-
-const app = express();
-const PORT = 3000;
-const BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
-
-['DB_USER','DB_PASSWORD','DB_HOST','DB_NAME','EMAIL_USER','EMAIL_PASS','ADMIN_EMAIL']
+// لو ناقص ENV ننوّه
+['DB_USER','DB_PASSWORD','DB_HOST','DB_NAME','EMAIL_USER','EMAIL_PASS','ADMIN_EMAIL','ADMIN_EMAILS']
   .forEach(k => { if (!process.env[k]) console.warn(`⚠️ Missing ENV: ${k}`); });
 
+// ميدلوير أساسي
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
+// مجلدات ثابتة
 const pdfDir = path.join(__dirname, '../pdfs');
 fs.ensureDirSync(pdfDir);
 app.use('/pdfs', express.static(pdfDir));
 app.use(express.static(path.join(__dirname, '../public')));
 
+// ==== إعداد SQL Server (Azure أو داخلي) ====
+const isAzure = /\.database\.windows\.net$/i.test(process.env.DB_HOST || '');
 const dbConfig = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  server: process.env.DB_HOST,
+  server: process.env.DB_HOST || '',
   database: process.env.DB_NAME,
-  port: parseInt(process.env.DB_PORT) || 1433,
-  options: { encrypt: false, trustServerCertificate: true }
+  port: parseInt(process.env.DB_PORT, 10) || 1433,
+  options: {
+    encrypt: isAzure,               // Azure => true
+    trustServerCertificate: !isAzure
+  }
 };
 
+// Nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
 });
 
-// Helpers
+/* ================= Helpers ================= */
 function safeStr(v, fb='-'){ if(v==null) return fb; const s=String(v); return s.trim()===''?fb:s; }
 function h(v, fb='-'){
   if(v==null) return fb;
   const s = String(v);
   return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
-function toFileUrl(p){ return 'file:///' + p.replace(/\\/g,'/'); }
 
-const questionLabels = {
-  attendance_all: "حضور جميع العاملين في الوقت المحدد",
-  departments_rep: "جميع الإدارات ممثلة بموظف واحد على الأقل",
-  building_clean_inside: "النظافة الداخلية للمبنى",
-  building_clean_outside: "النظافة الخارجية للمبنى",
-  production_clean: "النظافة داخل صالة الإنتاج",
-  warehouse_clean: "النظافة داخل المخازن",
-  uniform_company: "ارتداء جميع العاملين زي الشركة",
-  appearance: "التزام جميع العاملين بالمظهر العام (حلاقة الذقن)",
-  uniform_factory: "ارتداء جميع العاملين بالمصنع زي التصنيع (غطاء الرأس – الكمامة – القفازات)",
-  trucks_loaded: "جميع السيارات تم تحميلها و خروجها للتوزيع",
-  production_orders: "جميع أوامر الإنتاج منفذة و مفعلة على النظام",
-  cafeteria_ready: "الكافتيريا مجهزة و معدة لاستقبال العاملين",
-  leaving_on_time: "جميع العاملين ملتزمون بموعد الانصراف"
-};
-
-function toArabicAnswer(ans){
-  const a = safeStr(ans, '');
-  if(!a) return '-';
-  const n=a.toLowerCase();
-  if(n==='yes') return 'نعم';
-  if(n==='no') return 'لا';
-  return a;
-}
-
-// ===== HTML for PDF =====
+/* ============== HTML (PDF) ============== */
 function buildReportHTML({ username, submissionDate, answers, actions, logoUrl, fontPath, primary = '#1565c0' }) {
+  const toFileUrl = p => 'file:///' + p.replace(/\\/g, '/');
   const fontUrl = fs.existsSync(fontPath) ? toFileUrl(fontPath) : '';
+
+  const questionLabels = {
+    attendance_all: "حضور جميع العاملين في الوقت المحدد",
+    departments_rep: "جميع الإدارات ممثلة بموظف واحد على الأقل",
+    building_clean_inside: "النظافة الداخلية للمبنى",
+    building_clean_outside: "النظافة الخارجية للمبنى",
+    production_clean: "النظافة داخل صالة الإنتاج",
+    warehouse_clean: "النظافة داخل المخازن",
+    uniform_company: "ارتداء جميع العاملين زي الشركة",
+    appearance: "التزام جميع العاملين بالمظهر العام (حلاقة الذقن)",
+    uniform_factory: "ارتداء جميع العاملين بالمصنع زي التصنيع (غطاء الرأس – الكمامة – القفازات)",
+    trucks_loaded: "جميع السيارات تم تحميلها و خروجها للتوزيع",
+    production_orders: "جميع أوامر الإنتاج منفذة و مفعلة على النظام",
+    cafeteria_ready: "الكافتيريا مجهزة و معدة لاستقبال العاملين",
+    leaving_on_time: "جميع العاملين ملتزمون بموعد الانصراف"
+  };
+
+  function toArabicAnswer(ans){
+    const a = safeStr(ans, '');
+    if(!a) return '-';
+    const n=a.toLowerCase();
+    if(n==='yes') return 'نعم';
+    if(n==='no')  return 'لا';
+    return a;
+  }
 
   const sections = [
     { title: "1- الحضور", keys: ["attendance_all", "departments_rep"] },
@@ -176,8 +161,8 @@ function buildReportHTML({ username, submissionDate, answers, actions, logoUrl, 
         </thead>
         <tbody>
           ${actions.map(a=>{
-            const deptText = Array.isArray(a?.departments) ? a.departments.join('، ') :
-                             (typeof a?.departments === 'string' ? a.departments : '-');
+            const deptText = Array.isArray(a?.departments) ? a.departments.join('، ')
+                             : (typeof a?.departments === 'string' ? a.departments : '-');
             return `
               <tr>
                 <td class="img">${a.image ? `<img class="thumb" src="${h(a.image)}" />` : '-'}</td>
@@ -191,7 +176,6 @@ function buildReportHTML({ username, submissionDate, answers, actions, logoUrl, 
       </table>
     </div>` : '';
 
-  // Header (page 1 only)
   const headerHTML = `
     <div class="header">
       ${logoUrl ? `<img src="${logoUrl}" class="logo" />` : ''}
@@ -246,20 +230,13 @@ function buildReportHTML({ username, submissionDate, answers, actions, logoUrl, 
       table.grid thead th{ background:#e3f2fd; color:#1565c0; text-align:center; font-weight:700; }
       table.grid tbody tr:nth-child(odd){ background:#fafcff; }
       td.time, td.ans, td.date { text-align:center; }
-
       td.q{ width:34%; } td.reason{ width:22%; } td.act{ width:16%; }
 
-      /* الصورة دينامك: تملأ عرض العمود والارتفاع يتمدد */
+      /* الصورة دينامِك */
       table.grid td.img { padding: 6px; }
       table.grid td.img img.thumb{
-        display:block;
-        width:100%;
-        height:auto;
-        max-width:100%;
-        margin:4px auto;
-        border:1px solid #e0e0e0;
-        border-radius:8px;
-        page-break-inside:avoid;
+        display:block; width:100%; height:auto; max-width:100%;
+        margin:4px auto; border:1px solid #e0e0e0; border-radius:8px; page-break-inside:avoid;
       }
       table.grid tr{ page-break-inside:avoid; }
 
@@ -277,7 +254,6 @@ function buildReportHTML({ username, submissionDate, answers, actions, logoUrl, 
 </html>`;
 }
 
-// Footer template
 function buildFooterTemplate({ primary = '#1565c0' }) {
   return `
   <div dir="rtl" style="
@@ -293,7 +269,7 @@ function buildFooterTemplate({ primary = '#1565c0' }) {
   </div>`;
 }
 
-// ===== PDF generation =====
+/* ============== PDF Generation ============== */
 async function generatePDF(responseId, username, answers, actions, submissionDate = new Date()){
   const formattedDateForFile = new Date(submissionDate).toLocaleDateString('en-GB').replace(/\//g,'-');
   const formattedTimeForFile = new Date(submissionDate)
@@ -307,25 +283,25 @@ async function generatePDF(responseId, username, answers, actions, submissionDat
   const displayDate = new Date(submissionDate).toLocaleDateString('en-GB');
   const displayTime = new Date(submissionDate).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit', hour12: true});
 
-  const primary = '#1565c0';
-  const logoUrl = `${BASE_URL}/phpI4rSko.png`;
+  const primary  = '#1565c0';
+  const logoUrl  = `${BASE_URL}/phpI4rSko.png`;
   const fontPath = path.join(__dirname,'../fonts/Amiri-Regular.ttf');
 
   const html = buildReportHTML({
-    username,
-    submissionDate,
-    answers: answers||{},
-    actions: Array.isArray(actions)?actions:[],
-    logoUrl,
-    fontPath,
-    primary
+    username, submissionDate, answers: answers||{}, actions: Array.isArray(actions)?actions:[],
+    logoUrl, fontPath, primary
   });
 
   const footerTemplate = buildFooterTemplate({ primary });
 
+  // ✅ Puppeteer جوه الدالة
   const browser = await puppeteer.launch({
     headless: 'new',
-    args: ['--font-render-hinting=medium']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--font-render-hinting=medium'
+    ]
   });
 
   try{
@@ -349,7 +325,7 @@ async function generatePDF(responseId, username, answers, actions, submissionDat
   return { filePath, fileName, formattedDate: displayDate, formattedTime: displayTime };
 }
 
-// ===== API =====
+/* ============== API ============== */
 app.post('/save-response', async (req, res) => {
   try {
     const { username='unknown', name, timestamp, answers } = req.body;
@@ -365,7 +341,7 @@ app.post('/save-response', async (req, res) => {
       .query(`INSERT INTO responses (username, submission_date) OUTPUT INSERTED.id VALUES (@username, @submission_date)`);
     const responseId = respResult.recordset[0].id;
 
-    // حقول الإجابات (ماعدا actions)
+    // باقي الحقول (ما عدا actions)
     for (const [key, value] of Object.entries(answers)) {
       if (key === 'actions') continue;
       await pool.request()
@@ -375,7 +351,7 @@ app.post('/save-response', async (req, res) => {
         .query(`INSERT INTO response_fields (response_id, field_name, field_value) VALUES (@response_id, @field_name, @field_value)`);
     }
 
-    // الإجراءات + الإدارة
+    // الإجراءات + الإدارات
     const actionsSafe = Array.isArray(answers.actions) ? answers.actions : [];
     for (const a of actionsSafe) {
       await pool.request()
@@ -392,10 +368,20 @@ app.post('/save-response', async (req, res) => {
     const { filePath, fileName, formattedDate, formattedTime } =
       await generatePDF(responseId, username, answers, actionsSafe, submissionDate);
 
-    // ========= رسالة الإيميل =========
-    const actionsCount = Array.isArray(actionsSafe) ? actionsSafe.length : 0;
+    // === إعداد المستلمين من ENV ===
+    // ADMIN_EMAILS ممكن تكون "a@x.com,b@y.com; c@z.com"
+    const recipients = (process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '')
+      .split(/[;,]/)
+      .map(s => s.trim())
+      .filter(Boolean);
 
-    // نص عادي (لتوافق العملاء اللي ما بيفتحوش HTML)
+    if (recipients.length === 0) {
+      console.warn('⚠️ No ADMIN_EMAIL/ADMIN_EMAILS configured. Mail will be sent to EMAIL_USER as fallback.');
+      recipients.push(process.env.EMAIL_USER);
+    }
+
+    // ملخص الإيميل
+    const actionsCount = actionsSafe.length;
     const emailText = `تـحـيـة طـيـبـة،
 
 أرفق لكم تقرير "Duty Manager Report".
@@ -411,7 +397,6 @@ ${BASE_URL}/pdfs/${encodeURIComponent(fileName)}
 
 (يوجد نسخة PDF مرفقة بالتقرير).`;
 
-    // HTML + لوجو inline
     const logoCid = 'dmr-logo@inline';
     const emailHtml = `
       <div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;color:#111;line-height:1.8">
@@ -423,7 +408,8 @@ ${BASE_URL}/pdfs/${encodeURIComponent(fileName)}
         <ul style="padding-right:20px;margin:0 0 12px 0">
           <li>رقم التقرير: <strong>${responseId}</strong></li>
           <li>المرسل: <strong>${displayName}</strong> || أسم المستخدم: (<span dir="ltr">${username}</span>)</li>
-          <li>تاريخ الإرسال: <strong>${formattedDate} –  ${formattedTime}</strong></li>
+          <li>تاريخ الإرسال: <strong>${formattedDate} – ${formattedTime}</strong></li>
+          <li>عدد الإجراءات المسجلة: <strong>${actionsCount}</strong></li>
         </ul>
         <p>
           رابط العرض/التحميل:
@@ -431,16 +417,13 @@ ${BASE_URL}/pdfs/${encodeURIComponent(fileName)}
             ${BASE_URL}/pdfs/${encodeURIComponent(fileName)}
           </a>
         </p>
-        <p>"  يتم ارفاق نسخة PDF مع التقرير" </p>
-
-        
         <p style="margin-top:16px;color:#555">مع خالص الشكر،<br>قسم الـ IT</p>
       </div>
     `;
 
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
-      to: process.env.ADMIN_EMAIL,
+      to: recipients, // ← مصفوفة مستلمين
       subject: `Duty_Manager_Report - Response ${responseId} - ${username} - ${displayName} - ${formattedDate} – ${formattedTime}`,
       text: emailText,
       html: emailHtml,
@@ -459,6 +442,7 @@ ${BASE_URL}/pdfs/${encodeURIComponent(fileName)}
   }
 });
 
+/* ============== Routes & Boot ============== */
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
@@ -467,6 +451,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
 
+// اختبار اتصال بقاعدة البيانات (اختياري)
 sql.connect(dbConfig)
   .then(() => console.log('✅ Connected to SQL Server Database successfully!'))
   .catch(err => console.error('❌ Failed to connect to SQL Server:', err.message));
