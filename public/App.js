@@ -352,31 +352,47 @@ tr.innerHTML = `
 
 function positionMenu() {
   const isSmall = window.matchMedia('(max-width: 640px)').matches;
+
   if (isSmall) {
-    menu.style.position = 'fixed';
-    menu.style.top = 'auto';
-    menu.style.bottom = '12px';
-    menu.style.left = '50%';
-    menu.style.right = 'auto';
-    menu.style.transform = 'translateX(-50%)';
-    menu.style.width = '92vw';
-    menu.style.maxHeight = '45vh';
-    menu.style.overflow = 'auto';
+    // Bottom sheet على الموبايل
+    Object.assign(menu.style, {
+      position: 'fixed', left: '50%', right: 'auto',
+      bottom: '12px', top: '', transform: 'translateX(-50%)',
+      width: '92vw', maxHeight: '45vh', overflow: 'auto', zIndex: 99999
+    });
     return;
   }
+
+  // Desktop: حطها تحت الزر
   const r = btn.getBoundingClientRect();
-  const width = Math.max(r.width, 240);
-  const top = r.bottom + 6;
-  const left = r.left;
+  const top  = r.bottom + window.scrollY + 6;
+  const left = r.left   + window.scrollX;
   menu.style.position = 'absolute';
   menu.style.top  = `${top}px`;
   menu.style.left = `${left}px`;
-  menu.style.width = `${width}px`;
+  menu.style.width = `${Math.max(r.width, 240)}px`;
   menu.style.right = 'auto';
   menu.style.transform = '';
   menu.style.maxHeight = '';
-  menu.style.overflow = '';
+  menu.style.overflow  = '';
 }
+
+function openMenu() {
+  if (isOpen) return;
+  isOpen = true;
+  wrap.insertBefore(placeholder, menu);
+  menu.classList.add('portal');
+  menu.classList.remove('hidden');
+  document.body.appendChild(menu);
+
+  // خليه في النص على الموبايل
+  btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  positionMenu();
+  window.addEventListener('scroll', positionMenu, true);
+  window.addEventListener('resize', positionMenu);
+}
+
 
 
     function openMenu() {
