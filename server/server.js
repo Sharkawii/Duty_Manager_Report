@@ -1,3 +1,30 @@
+const PORT = process.env.PORT || 3000;
+const BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
+
+// ==== MSSQL config (يشغّل encrypt تلقائيًا لو Azure) ====
+const isAzure = /\.database\.windows\.net$/i.test(process.env.DB_HOST || '');
+const dbConfig = {
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  server: process.env.DB_HOST,      // لازم تبقى String (مش فاضي)
+  database: process.env.DB_NAME,
+  port: parseInt(process.env.DB_PORT) || 1433,
+  options: {
+    encrypt: isAzure,               // Azure يتطلب true
+    trustServerCertificate: !isAzure
+  }
+};
+
+// ==== Puppeteer في بيئة كونتينر ====
+const browser = await puppeteer.launch({
+  headless: 'new',
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--font-render-hinting=medium'
+  ]
+});
+
 console.log('__dirname is: D:\\M.Sharkawy\\EBS\\Website EBS\\Duty_Manager_Report\\server', __dirname);
 require('dotenv').config();
 const express = require('express');
