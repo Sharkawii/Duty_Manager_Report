@@ -16,8 +16,19 @@ const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
 
 // لو ناقص ENV ننوّه
-['DB_USER','DB_PASSWORD','DB_HOST','DB_NAME','EMAIL_USER','EMAIL_PASS','ADMIN_EMAIL','ADMIN_EMAILS']
+// لو ناقص ENV ننوّه (من غير ما نفرض ADMIN_EMAILS)
+['DB_USER','DB_PASSWORD','DB_HOST','DB_NAME','EMAIL_USER','EMAIL_PASS']
   .forEach(k => { if (!process.env[k]) console.warn(`⚠️ Missing ENV: ${k}`); });
+
+// نكتفي بإن واحد من الاتنين موجود
+const hasAdminTargets =
+  (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL.trim()) ||
+  (process.env.ADMIN_EMAILS && process.env.ADMIN_EMAILS.trim());
+
+if (!hasAdminTargets) {
+  console.warn('⚠️ Missing ENV: ADMIN_EMAIL or ADMIN_EMAILS');
+}
+
 
   const DEMO_MODE = /^true$/i.test(process.env.DEMO_MODE || '');
 // ميدلوير أساسي
